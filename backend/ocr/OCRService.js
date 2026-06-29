@@ -3,7 +3,7 @@ import { getPaddleOcrEngine } from './OCRWorker.js';
 import { correctOrientation } from './preprocessing/orientation.js'
 import { extractFields } from './DocumentFieldExtractor.js'
 
-const MIN_CONFIDENCE = 0.75;
+const MIN_CONFIDENCE = 0.5;
 
 function bufferToArrayBuffer(buf) {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -26,7 +26,9 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
   const preprocessed = await sharp(corrected)
     .grayscale()
     .normalize()
-    .blur(docType === 'EVISA' ? 0.3 : 2)
+    .blur(docType === 'EVISA' ? 0.3 : docType === 'VISA' ? 2 : 1)
+    .sharpen(docType !== 'EVISA' ? 3 : 0.01)
+    .png()
     .toBuffer();
   logger('preprocessing:done');
 

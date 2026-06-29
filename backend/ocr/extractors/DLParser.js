@@ -1,7 +1,22 @@
 export function extractDrivingLicenceFields(ocrOutput) {
-  // Handle both direct text string and OCR object with detections
-  const text = typeof ocrOutput === 'string' ? ocrOutput : ocrOutput?.text || '';
-  const detections = ocrOutput?.detections || [];
+  const detections = ocrOutput?.detections ?? [];
+
+  const lines = detections.length
+    ? detections
+        .sort((a, b) => {
+          if (Math.abs(a.box.y - b.box.y) < 8) {
+            return a.box.x - b.box.x;
+          }
+          return a.box.y - b.box.y;
+        })
+        .map(d => d.text.trim())
+        .filter(Boolean)
+    : (typeof ocrOutput === 'string'
+        ? ocrOutput
+        : ocrOutput?.text || '')
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
 
   let name = '';
   let dob = '';
@@ -9,53 +24,96 @@ export function extractDrivingLicenceFields(ocrOutput) {
   let documentNumber = '';
   let expiryDate = '';
 
-  // Extract DL Number - format: [2 letters][2 digits][space/dash][10 digits]
-  const dlMatch = text.match(/DL\s*No\s*([A-Z]{2}\d{2}\s*\d{4}\s*\d{7})/i);
-  if (dlMatch) {
-    documentNumber = dlMatch[1].replace(/\s/g, '');
-  }
+  for (const line of lines) {
+    //
+    // DL NUMBER
+    //
+    if (!documentNumber) {
+      const match = line.match(
+        /DL\s*No[:\s]*([A-Z]{2}\s*\d{2}\s*\d{5,})/i
+      );
 
-  // Extract DOB - look for pattern with hyphens or slashes
-  const dobMatch = text.match(/DOB[:\s]*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
-  if (dobMatch) {
-    dob = dobMatch[1];
-  }
+      if (match) {
+        documentNumber = match[1].replace(/\s+/g, '');
+        continue;
+      }
+    }
 
-  // Extract Expiry Date - look for "Valid Till" pattern
-  const expiryMatch = text.match(/Valid\s*Till[:\s]*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
-  if (expiryMatch) {
-    expiryDate = expiryMatch[1];
-  }
+    //
+    // DOB
+    //
+    if (!dob) {
+      const match = line.match(
+        /DOB[:：]?\s*(\d{2}[\/-]\d{2}[\/-]\d{4})/i
+      );
 
-  // Extract Name - use detections for better accuracy
-  if (detections.length > 0) {
-    const nameDetection = detections.find(d =>
-      /^Name\s+[A-Za-z\s.'-]+$/i.test(d.text) &&
-      d.confidence > 0.8
-    );
-    if (nameDetection) {
-      name = nameDetection.text
-        .replace(/^Name\s*/i, '')
-        .trim();
+      if (match) {
+        dob = match[1];
+        continue;
+      }
+    }
+
+    //
+    // EXPIRY
+    //
+    if (!expiryDate) {
+      const match = line.match(
+        /Valid\s*T(?:i)?l+l?[:：]?\s*(\d{2}[\/-]\d{2}[\/-]\d{4})/i
+      );
+
+      if (match) {
+        expiryDate = match[1];
+        continue;
+      }
+    }
+
+    //
+    // NAME
+    //
+    if (!name) {
+      const match = line.match(/^Name[:\s]+(.+)$/i);
+
+      if (match) {
+        name = match[1]
+          .replace(/[^\w\s.'-]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        continue;
+      }
+    }
+
+    //
+    // GENDER (rare on Indian DLs)
+    //
+    if (!sex) {
+      if (/female/i.test(line)) {
+        sex = 'Female';
+      } else if (/male/i.test(line)) {
+        sex = 'Male';
+      } else if (/other/i.test(line)) {
+        sex = 'Other';
+      }
     }
   }
 
-  // Fallback: extract name from text
-  if (!name) {
-    const nameMatch = text.match(/Name\s+([A-Z][A-Za-z\s.'-]*?)(?:\s+[A-Z]\/|$|Add|PIN)/);
-    if (nameMatch) {
-      name = nameMatch[1].trim();
+  //
+  // Fallback DL number
+  //
+  if (!documentNumber) {
+    for (const line of lines) {
+      const match = line.match(/\b([A-Z]{2}\d{2}\d{11,})\b/);
+
+      if (match) {
+        documentNumber = match[1];
+        break;
+      }
     }
   }
 
-  // Extract Gender - try common patterns
-  const genderMatch = text.match(/\b(MALE|FEMALE|OTHER)\b/i);
-  if (genderMatch) {
-    const genderText = genderMatch[1].toUpperCase();
-    if (genderText === 'FEMALE') sex = 'Female';
-    else if (genderText === 'MALE') sex = 'Male';
-    else sex = 'Other';
-  }
+  //
+  // Remove spaces from DL number
+  //
+  documentNumber = documentNumber.replace(/\s+/g, '');
 
   return {
     documentType: 'DRIVING_LICENSE',

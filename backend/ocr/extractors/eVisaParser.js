@@ -1,67 +1,119 @@
 export function extractEVisaFields(ocrResult) {
-  // Supports:
-  // 1. Full OCR response object
-  // 2. Plain text string
-  // 3. detections array
+  const detections = ocrResult?.detections ?? [];
 
-  const cleanText =
-    typeof ocrResult === "string"
-      ? ocrResult
-      : ocrResult?.text ||
-        (ocrResult?.detections || [])
-          .map((d) => d.text)
-          .join("\n") ||
-        "";
+  const lines = detections.length
+    ? detections
+        .sort((a, b) => {
+          if (Math.abs(a.box.y - b.box.y) < 8) {
+            return a.box.x - b.box.x;
+          }
+          return a.box.y - b.box.y;
+        })
+        .map(d => d.text.trim())
+        .filter(Boolean)
+    : (typeof ocrResult === 'string'
+        ? ocrResult
+        : ocrResult?.text || '')
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
 
-  const lines = cleanText
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+  function getValue(label) {
+    const lowerLabel = label.toLowerCase();
 
-  const getValue = (label) => {
-    const index = lines.findIndex((l) =>
-      l.toLowerCase().startsWith(label.toLowerCase())
-    );
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
 
-    if (index === -1) return "";
+      if (!line.toLowerCase().startsWith(lowerLabel)) continue;
 
-    const current = lines[index];
+      //
+      // Label : Value
+      //
+      const sameLine = line
+        .replace(new RegExp(`^${label}\\s*:?`, "i"), "")
+        .trim();
 
-    // Label and value on same line
-    const sameLine = current.replace(new RegExp(`^${label}\\s*:?`, "i"), "").trim();
-    if (sameLine && sameLine.toLowerCase() !== label.toLowerCase()) {
-      return sameLine;
+      if (sameLine && sameLine.toLowerCase() !== lowerLabel) {
+        return sameLine;
+      }
+
+      //
+      // Otherwise use next non-empty line
+      //
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j]) return lines[j];
+      }
     }
 
-    // Otherwise next line
-    return lines[index + 1] || "";
-  };
+    return "";
+  }
 
-  const applicationId = getValue("Application ID");
-  const applicationStatus = getValue("Application Status");
-  const etaNumber = getValue("ETA Number");
-  const etaIssueDate = getValue("ETA Issue Date");
+  //
+  // Header
+  //
+  const visaType =
+    lines.find(l => /^ETA\s+for/i.test(l))
+      ?.replace(/^ETA\s+for\s*/i, "")
+      .trim() || "";
 
+  //
+  // Personal Information
+  //
   const passportNumber = getValue("Passport Number");
   const name = getValue("Name");
   const dob = getValue("Date of Birth");
   const gender = getValue("Gender");
   const nationality = getValue("Nationality");
 
+  //
+  // ETA
+  //
+  const applicationId = getValue("Application ID");
+  const applicationStatus = getValue("Application Status");
+  const etaNumber = getValue("ETA Number");
+  const etaIssueDate = getValue("ETA Issue Date");
+
+  //
+  // Visa
+  //
   const issueDate = getValue("e-Visa Issue Date");
-  const expiryDate = getValue("e-Visa Expiry Date");
+  let expiryDate = getValue("e-Visa Expiry Date");
   const numberOfEntries = getValue("Number of Entries");
   const permittedDurationOfStay = getValue("Permitted duration of stay");
 
-  const visaType =
-    cleanText.match(/ETA\s+for\s+([^\n]+)/i)?.[1]?.trim() || "";
+  //
+  // Some samples omit expiry value.
+  // Look at the line after the label if it is a date.
+  //
+  if (!expiryDate) {
+    const idx = lines.findIndex(l =>
+      /^e-?Visa\s+Expiry\s+Date/i.test(l)
+    );
 
+    if (idx !== -1) {
+      for (let i = idx + 1; i < Math.min(lines.length, idx + 4); i++) {
+        if (
+          /\d{2}[\/-][A-Z]{3}[\/-]\d{4}/i.test(lines[i]) ||
+          /\d{2}[\/-]\d{2}[\/-]\d{4}/.test(lines[i])
+        ) {
+          expiryDate = lines[i];
+          break;
+        }
+      }
+    }
+  }
+
+  //
+  // Gender
+  //
   let sex = "";
 
-  if (/female/i.test(gender)) sex = "Female";
-  else if (/male/i.test(gender)) sex = "Male";
-  else if (gender) sex = "Other";
+  if (/female/i.test(gender))
+    sex = "Female";
+  else if (/male/i.test(gender))
+    sex = "Male";
+  else if (gender)
+    sex = "Other";
 
   return {
     documentType: "E_VISA",
@@ -84,6 +136,6 @@ export function extractEVisaFields(ocrResult) {
     expiryDate,
 
     numberOfEntries,
-    permittedDurationOfStay,
+    permittedDurationOfStay
   };
 }

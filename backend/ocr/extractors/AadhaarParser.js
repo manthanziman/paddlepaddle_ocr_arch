@@ -1,60 +1,123 @@
 export function extractAadhaarFields(ocrOutput) {
-  // Handle both direct text string and OCR object with detections
-  const text = typeof ocrOutput === 'string' ? ocrOutput : ocrOutput?.text || '';
-  const detections = ocrOutput?.detections || [];
+  const detections = ocrOutput?.detections ?? [];
+
+  // Use detection lines whenever available
+  const lines = detections.length
+    ? detections
+        .sort((a, b) => a.box.y - b.box.y)
+        .map(d => d.text.trim())
+        .filter(Boolean)
+    : (typeof ocrOutput === 'string'
+        ? ocrOutput
+        : ocrOutput?.text || '')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
 
   let name = '';
   let dob = '';
   let sex = '';
   let documentNumber = '';
 
-  // Extract Aadhaar number - 12 digit pattern with optional spaces
-  const aadhaarMatch = text.match(/\b\d{4}\s?\d{4}\s?\d{4}\b/);
-  if (aadhaarMatch) {
-    documentNumber = aadhaarMatch[0].replace(/\s/g, '');
-  }
+  //
+  // Aadhaar Number
+  //
+  for (const line of lines) {
+    const match = line.match(/\b\d{4}\s?\d{4}\s?\d{4}\b/);
 
-  // Extract DOB - look for pattern DD/MM/YYYY
-  const dobMatch = text.match(/\d{2}\/\d{2}\/\d{4}/);
-  if (dobMatch) {
-    dob = dobMatch[0];
-  }
-
-  // Extract Gender
-  const genderMatch = text.match(/\b(MALE|FEMALE|TRANSGENDER)\b/i);
-  if (genderMatch) {
-    const genderText = genderMatch[1].toUpperCase();
-    if (genderText === 'FEMALE') sex = 'Female';
-    else if (genderText === 'MALE') sex = 'Male';
-    else sex = 'Other';
-  }
-
-  // Extract Name - use detections if available for better accuracy
-  if (detections.length > 0) {
-    // Look for name-like detections (words with high confidence, no numbers/slashes)
-    const nameDetection = detections.find(d =>
-      /^[A-Za-z\s.'-]+$/.test(d.text) &&
-      !d.text.includes('Government') &&
-      !d.text.includes('India') &&
-      !d.text.includes('Aadhaar') &&
-      !d.text.includes('Authority') &&
-      d.text.length > 3 &&
-      d.confidence > 0.95
-    );
-    if (nameDetection) {
-      name = nameDetection.text.trim();
+    if (match) {
+      documentNumber = match[0].replace(/\s/g, '');
+      break;
     }
   }
 
-  // Fallback: extract name from text before DOB if not found in detections
-  if (!name && dob) {
-    const dobIndex = text.indexOf(dob);
-    if (dobIndex > 0) {
-      const beforeDob = text.substring(0, dobIndex).trim();
-      const nameMatch = beforeDob.match(/([A-Za-z\s.'-]+)(?:\s+C\/O|\s*$)/);
-      if (nameMatch) {
-        name = nameMatch[1].trim();
-      }
+  //
+  // DOB
+  //
+  for (const line of lines) {
+    const match = line.match(/\b\d{2}[/-]\d{2}[/-]\d{4}\b/);
+
+    if (match) {
+      dob = match[0];
+      break;
+    }
+  }
+
+  //
+  // Gender
+  //
+  for (const line of lines) {
+    if (/female/i.test(line)) {
+      sex = 'Female';
+      break;
+    }
+
+    if (/male/i.test(line)) {
+      sex = 'Male';
+      break;
+    }
+
+    if (/transgender/i.test(line)) {
+      sex = 'Other';
+      break;
+    }
+  }
+
+  //
+  // Name
+  //
+  const ignoredKeywords = [
+    'government',
+    'india',
+    'unique identification',
+    'uidai',
+    'aadhaar',
+    'authority',
+    'dob',
+    'year of birth',
+    'male',
+    'female',
+    'transgender',
+    'address',
+    'c/o',
+    'care of',
+    'vid',
+    'enrolment',
+    'download',
+    'www',
+    'help',
+    'mobile'
+  ];
+
+  for (const line of lines) {
+    const text = line.trim();
+    const lower = text.toLowerCase();
+
+    if (!text) continue;
+
+    if (ignoredKeywords.some(keyword => lower.includes(keyword))) {
+      continue;
+    }
+
+    // Skip Aadhaar number
+    if (/\d{4}\s?\d{4}\s?\d{4}/.test(text)) {
+      continue;
+    }
+
+    // Skip DOB/date lines
+    if (/\d{2}[/-]\d{2}[/-]\d{4}/.test(text)) {
+      continue;
+    }
+
+    // Skip lines containing digits
+    if (/\d/.test(text)) {
+      continue;
+    }
+
+    // Accept only alphabetic names
+    if (/^[A-Za-z\s.'-]{3,}$/.test(text)) {
+      name = text;
+      break;
     }
   }
 
