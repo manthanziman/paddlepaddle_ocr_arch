@@ -216,7 +216,7 @@ function App() {
                   } catch(e) {}
 
                   setProgress(100);
-                  setProgressMessage(`Done — confidence ${(json.confidence||0).toFixed(2)}`);
+                  setProgressMessage(`Done - confidence ${(json.confidence||0).toFixed(2)}`);
                   setActiveTab('extracted');
                   resolve();
                 } else {
@@ -407,7 +407,6 @@ function App() {
                 <option value="">Select document type...</option>
                 <option value="Aadhaar">Aadhaar</option>
                 <option value="Passport">Passport</option>
-                <option value="PAN">PAN</option>
                 <option value="Visa">Visa</option>
                 <option value="eVisa">eVisa</option>
                 <option value="Driving Licence">Driving Licence</option>

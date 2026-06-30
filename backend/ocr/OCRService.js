@@ -3,7 +3,7 @@ import { getPaddleOcrEngine } from './OCRWorker.js';
 import { correctOrientation } from './preprocessing/orientation.js'
 import { extractFields } from './DocumentFieldExtractor.js'
 
-const MIN_CONFIDENCE = 0.5;
+const MIN_CONFIDENCE = 0.7;
 
 function bufferToArrayBuffer(buf) {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -18,26 +18,29 @@ function bufferToArrayBuffer(buf) {
  */
 export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
   const start = Date.now();
-  const docType = (options && options.documentType) ? String(options.documentType).toUpperCase() : 'UNKNOWN';
+  let docType = (options && options.documentType) ? String(options.documentType).toUpperCase() : 'UNKNOWN';
 
   logger('preprocessing:start');
   const { corrected, detectedAngle, confidence: orientationConfidence } = await correctOrientation(input);
 
+  const engine = getPaddleOcrEngine();
+
   const preprocessed = await sharp(corrected)
     .grayscale()
-    .normalize()
-    .blur(docType === 'EVISA' ? 0.3 : docType === 'VISA' ? 2 : 1)
-    .sharpen(docType !== 'EVISA' ? 3 : 0.01)
+    // .normalize()
+    .blur(docType === 'VISA' ? 2 : 1)
+    .sharpen(docType !== 'EVISA' ? 3 : 1)
     .png()
     .toBuffer();
   logger('preprocessing:done');
 
   logger('ocr:start');
-  const engine = getPaddleOcrEngine();
+
   const { results } = await engine.recognize(bufferToArrayBuffer(preprocessed), {
     flatten: true,
     ...(options.recognize || {}),
   });
+  console.log(results)
   logger('ocr:done');
 
   const detections = results
