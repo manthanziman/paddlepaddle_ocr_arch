@@ -52,7 +52,12 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
     ? detections.reduce((sum, d) => sum + d.confidence, 0) / detections.length
     : 0;
 
-  const fields = extractFields({text: detections.map((d) => d.text).join(' '), detections : detections}, docType);
+  const text = detections.map((d) => d.text).join(' ')
+
+  if(docType == "VISA" && text.includes('ETA')){
+    docType = 'EVISA'
+  }
+  const fields = extractFields({text: text, detections : detections}, docType);
 
   return {
     text: detections.map((d) => d.text).join(' '),

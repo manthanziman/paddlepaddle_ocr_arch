@@ -408,7 +408,6 @@ function App() {
                 <option value="Aadhaar">Aadhaar</option>
                 <option value="Passport">Passport</option>
                 <option value="Visa">Visa</option>
-                <option value="eVisa">eVisa</option>
                 <option value="Driving Licence">Driving Licence</option>
                 <option value="Other">Other</option>
               </select>
