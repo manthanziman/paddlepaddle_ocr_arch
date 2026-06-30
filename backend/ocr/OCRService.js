@@ -29,7 +29,7 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
     .grayscale()
     // .normalize()
     .blur(docType === 'VISA' ? 2 : 1)
-    .sharpen(docType !== 'EVISA' ? 3 : 1)
+    .sharpen(1)
     .png()
     .toBuffer();
   logger('preprocessing:done');
