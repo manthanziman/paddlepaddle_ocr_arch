@@ -77,7 +77,7 @@ export function parsePassportMRZ(mrz) {
   const rawFields = extractRawFields(lines, mrz.format);
 
   const fields = parsed?.fields || {};
-
+  console.log(fields)
   const lastName  = fields.lastName  || rawFields.lastName;
   const firstName = fields.firstName || rawFields.firstName;
 

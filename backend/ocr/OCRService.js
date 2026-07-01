@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { getPaddleOcrEngine } from './OCRWorker.js';
-import { correctOrientation } from './preprocessing/orientation.js'
+// import { correctOrientation } from './preprocessing/orientation.js'
 import { extractFields } from './DocumentFieldExtractor.js'
 
 const MIN_CONFIDENCE = 0.7;
@@ -21,11 +21,11 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
   let docType = (options && options.documentType) ? String(options.documentType).toUpperCase() : 'UNKNOWN';
 
   logger('preprocessing:start');
-  const { corrected, detectedAngle, confidence: orientationConfidence } = await correctOrientation(input);
+  // const { corrected, detectedAngle, confidence: orientationConfidence } = await correctOrientation(input);
 
   const engine = getPaddleOcrEngine();
 
-  const preprocessed = await sharp(corrected)
+  const preprocessed = await sharp(input)
     .grayscale()
     // .normalize()
     .blur(1)
@@ -37,6 +37,7 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
   logger('ocr:start');
 
   const { results } = await engine.recognize(bufferToArrayBuffer(preprocessed), {
+    stratergy : 'per-line',
     flatten: true,
     ...(options.recognize || {}),
   });

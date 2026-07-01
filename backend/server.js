@@ -7,7 +7,7 @@ import cors from 'cors';
 import { typeDefs } from './schema.js';
 import { resolvers } from './resolvers.js';
 import ocrRouter from './ocr/OCRController.js';
-import { loadOrientationModel } from './ocr/preprocessing/orientation.js';
+// import { loadOrientationModel } from './ocr/preprocessing/orientation.js';
 import { initPaddleOcrEngine } from './ocr/OCRWorker.js'
 
 async function startServer() {
@@ -45,7 +45,7 @@ async function startServer() {
 
   // Load and warm up the orientation model before accepting traffic.
   try {
-    await loadOrientationModel();
+    // await loadOrientationModel();
     await initPaddleOcrEngine();
     console.log('Orientation model loaded and warmed up — ready to accept requests');
   } catch (err) {
