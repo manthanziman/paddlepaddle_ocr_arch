@@ -37,18 +37,17 @@ export async function runOcrOnBuffer(input, options = {}, logger = () => {}) {
   logger('ocr:start');
 
   const { results } = await engine.recognize(bufferToArrayBuffer(preprocessed), {
-    stratergy : 'per-line',
     flatten: true,
     ...(options.recognize || {}),
   });
-  console.log(results)
+  // console.log(results)//
   logger('ocr:done');
 
   const detections = results
     .filter((r) => r.confidence >= MIN_CONFIDENCE)
     .map((r) => ({ text: r.text, box: r.box, confidence: r.confidence }));
 
-    console.log(detections)
+    // console.log(detections)
   const confidence = detections.length
     ? detections.reduce((sum, d) => sum + d.confidence, 0) / detections.length
     : 0;

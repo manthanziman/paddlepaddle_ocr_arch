@@ -4,6 +4,33 @@ import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { runOcrOnBuffer } from './ocr/OCRService.js';
 
+function normalizeFields(fields = {}) {
+  const baseFields = {
+    documentType: '',
+    name: '',
+    sex: '',
+    documentNumber: '',
+    dob: '',
+    nationality: '',
+    address: '',
+    dateOfIssue: '',
+    validTill: '',
+    etaNumber: '',
+    applicationStatus: '',
+    issueDate: '',
+    expiryDate: ''
+  };
+
+  const normalized = { ...baseFields, ...(fields || {}) };
+  Object.keys(normalized).forEach((key) => {
+    if (normalized[key] === undefined || normalized[key] === null) {
+      normalized[key] = '';
+    }
+  });
+
+  return normalized;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, 'db.json');
@@ -83,15 +110,7 @@ export const resolvers = {
           tsv: result.tsv || '',
           confidence: result.confidence || 0,
           processingTimeMs: result.processingTimeMs || 0,
-          fields: {
-            documentType: result.fields.documentType || '',
-            name: result.fields.name || '',
-            sex: result.fields.sex || '',
-            documentNumber: result.fields.documentNumber || '',
-            dob: result.fields.dob || '',
-            nationality: result.fields.nationality || '',
-            expiryDate: result.fields.expiryDate || ''
-          }
+          fields: normalizeFields(result.fields)
         };
       } catch (err) {
         console.error('GraphQL OCR failed:', err);
@@ -102,15 +121,7 @@ export const resolvers = {
             tsv: '',
             confidence: 0,
             processingTimeMs: 0,
-            fields: {
-              documentType: '',
-              name: '',
-              sex: '',
-              documentNumber: '',
-              dob: '',
-              nationality: '',
-              expiryDate: ''
-            }
+            fields: normalizeFields()
           };
       }
     }

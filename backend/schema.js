@@ -42,6 +42,11 @@ export const typeDefs = `#graphql
     documentNumber: String
     dob: String
     nationality: String
+    address: String
+    dateOfIssue: String
+    etaNumber: String
+    applicationStatus: String
+    issueDate: String
     expiryDate: String
   }
 `;

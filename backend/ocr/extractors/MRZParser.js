@@ -85,10 +85,11 @@ export function parsePassportMRZ(mrz) {
     documentType: 'PASSPORT',
     name: [firstName, lastName].filter(Boolean).join(' '),
     sex: fields.sex || normalizeSex(rawFields.sex),
-    dob: formatMRZDate(fields.birthDate || rawFields.birthDate),
+    dob: formatMRZDate(fields.birthDate || rawFields.birthDate,'birth'),
     nationality: fields.nationality || rawFields.nationality, // raw fallback handles UTO etc.
     documentNumber: (fields.documentNumber || rawFields.documentNumber || '').replace(/</g, ''),
-    expiryDate: formatMRZDate(fields.expirationDate || rawFields.expirationDate),
+    expiryDate: formatMRZDate(fields.expirationDate || rawFields.expirationDate,'expiry'),
+    issuingState: fields.issuingState
   };
 }
 
@@ -164,7 +165,8 @@ export function parseVisaMRZ(mrz) {
     dob:
       formatMRZDate(
         fields.birthDate ||
-        rawFields.birthDate
+        rawFields.birthDate,
+        'birth'
       ),
 
     nationality:
@@ -181,8 +183,10 @@ export function parseVisaMRZ(mrz) {
     expiryDate:
       formatMRZDate(
         fields.expirationDate ||
-        rawFields.expirationDate
-      )
+        rawFields.expirationDate,
+        'expiry'
+      ),
+    issuingState: fields.issuingState
   };
 }
 

@@ -13,11 +13,12 @@ export function extractAadhaarFields(ocrOutput) {
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(Boolean);
-
+  console.log(lines)
   let name = '';
   let dob = '';
   let sex = '';
   let documentNumber = '';
+  let address = '';
 
   //
   // Aadhaar Number
@@ -60,6 +61,22 @@ export function extractAadhaarFields(ocrOutput) {
     if (/transgender/i.test(line)) {
       sex = 'Other';
       break;
+    }
+  }
+
+  //
+  // Address
+  //
+  for (const line of lines) {
+    const text = line.trim();
+    if (!text) continue;
+
+    if (/address/i.test(text)) {
+      const cleaned = text.replace(/address/i, '').replace(/[:.\-]/g, '').trim();
+      if (cleaned && !/\d{4}\s?\d{4}\s?\d{4}/.test(cleaned) && !/\d{2}[/-]\d{2}[/-]\d{4}/.test(cleaned)) {
+        address = cleaned;
+        break;
+      }
     }
   }
 
@@ -128,6 +145,7 @@ export function extractAadhaarFields(ocrOutput) {
     dob,
     nationality: 'Indian',
     documentNumber,
+    address,
     expiryDate: ''
   };
 }

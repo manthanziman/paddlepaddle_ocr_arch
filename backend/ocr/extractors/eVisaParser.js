@@ -17,7 +17,7 @@ export function extractEVisaFields(ocrResult) {
         .split(/\r?\n/)
         .map(l => l.trim())
         .filter(Boolean);
-
+  console.log(lines)
   function getValue(label) {
     const lowerLabel = label.toLowerCase();
 
@@ -76,8 +76,8 @@ export function extractEVisaFields(ocrResult) {
   //
   // Visa
   //
-  const issueDate = getValue("e-Visa Issue Date");
-  let expiryDate = getValue("e-Visa Expiry Date");
+  const issueDate = getValue("Issue Date") || getValue("e-Visa Issue Date");
+  let expiryDate = getValue("Expiry Date") || getValue("e-Visa Expiry Date");
   const numberOfEntries = getValue("Number of Entries");
   const permittedDurationOfStay = getValue("Permitted duration of stay");
 

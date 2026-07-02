@@ -12,13 +12,13 @@ export function extractDrivingLicenceFields(ocrOutput) {
         .split(/\r?\n/)
         .map(l => l.trim())
         .filter(Boolean);
-
+  console.log(lines)
   // ---------- helpers ----------
 
   // Recognize lines that are themselves *labels* for other fields, so
   // look-ahead doesn't accidentally swallow the next field's label as a value.
   const OTHER_LABEL_RE =
-    /^\s*(D\.?\s?L\.?\s?No\.?|Licen[cs]e\s*No\.?|Driving\s*Licen[cs]e\s*No\.?|D\.?\s?O\.?\s?B\.?|Date\s*of\s*Birth|Valid(ity)?\s*(Till|Upto|To|Through)?|Sex|Gender|Name|S\/O|D\/O|W\/O|Son\s*\/?\s*Wife\s*\/?\s*Daughter|Blood\s*Group|Address|Auth(orit)?y|COV|Class\s*of\s*Vehicle)\s*[:.\-]?\s*$/i;
+    /^\s*(D\.?\s?L\.?\s?No\.?|Licen[cs]e\s*No\.?|Driving\s*Licen[cs]e\s*No\.?|D\.?\s?O\.?\s?B\.?|Date\s*of\s*Birth|Valid(ity)?\s*(Till|Upto|To|Through)?|Sex|Gender|Name|S\/O|D\/O|W\/O|Son\s*\/?\s*Wife\s*\/?\s*Daughter|Blood\s*Group|Address|Add|Auth(orit)?y|COV|Class\s*of\s*Vehicle)\s*[:.\-]?\s*$/i;
 
   function looksLikeLabelOnly(line) {
     return OTHER_LABEL_RE.test(line);
@@ -78,7 +78,10 @@ export function extractDrivingLicenceFields(ocrOutput) {
   const DATE_RE = /(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})/;
 
   const EXPIRY_LABEL_RE = /Valid(ity)?\s*(Till|Upto|To|Through)?/i;
-
+  // Match full "Address" or short forms like "Add"/"Add." as a whole word,
+  // so lines starting with either form are recognized as the address label.
+  const ADDRESS_LABEL_RE = /\b(Address|Add)\b\.?/i;
+  const DOI_LABEL_RE = /Date\s*of\s*Issue|D\.?\s?O\.?\s?I\.?|Issue\s*Date/i;
   const NAME_LABEL_RE = /^\s*Name\b/i;
 
   const SEX_INLINE_RE = /\bSex\s*[:\-]?\s*([MFO])\b/i;
@@ -90,6 +93,8 @@ export function extractDrivingLicenceFields(ocrOutput) {
   let sex = '';
   let documentNumber = '';
   let expiryDate = '';
+  let address = '';
+  let dateOfIssue = '';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -126,6 +131,44 @@ export function extractDrivingLicenceFields(ocrOutput) {
       } else {
         const m = findValueNear(i + 1, DATE_RE);
         if (m) expiryDate = normalizeDate(m[1]);
+      }
+    }
+
+    // ---- Address ----
+    // The address block spans up to two lines. It can either:
+    //   1) start on the label line itself ("Address: line1" then "line2"), or
+    //   2) start entirely on the following lines ("Address:" then "line1" / "line2").
+    if (!address && ADDRESS_LABEL_RE.test(line)) {
+      const inline = line.replace(ADDRESS_LABEL_RE, '').replace(/^[:\-\s]+/, '').trim();
+      const addressParts = [];
+
+      if (inline && !looksLikeLabelOnly(inline)) {
+        addressParts.push(inline);
+        // Pull in the next line too, since the address usually continues there.
+        const next = lines[i + 1];
+        if (next && !looksLikeLabelOnly(next)) {
+          addressParts.push(next.trim());
+        }
+      } else {
+        // Collect up to 2 content lines following the label, stopping if we
+        // hit what looks like the start of another field.
+        for (let j = i + 1; j < lines.length && addressParts.length < 2; j++) {
+          if (looksLikeLabelOnly(lines[j])) break;
+          addressParts.push(lines[j].trim());
+        }
+      }
+
+      address = addressParts.join(' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // ---- Date of Issue ----
+    if (!dateOfIssue && DOI_LABEL_RE.test(line)) {
+      const inline = line.match(DATE_RE);
+      if (inline) {
+        dateOfIssue = normalizeDate(inline[1]);
+      } else {
+        const m = findValueNear(i + 1, DATE_RE);
+        if (m) dateOfIssue = normalizeDate(m[1]);
       }
     }
 
@@ -198,6 +241,8 @@ export function extractDrivingLicenceFields(ocrOutput) {
     dob,
     nationality: 'Indian',
     documentNumber,
+    address,
+    dateOfIssue,
     expiryDate
   };
 }
